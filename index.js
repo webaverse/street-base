@@ -161,7 +161,7 @@ export default () => {
     new THREE.Vector3(0, -streetSize.y/2, 0)
       .applyQuaternion(streetMesh.quaternion),
     streetMesh.quaternion,
-    new THREE.Vector3(streetSize.z, streetSize.y, streetSize.z).multiplyScalar(0.5),
+    new THREE.Vector3(streetSize.x, streetSize.y, streetSize.z).multiplyScalar(0.5),
     false
   );
 

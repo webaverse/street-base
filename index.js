@@ -147,6 +147,10 @@ export default () => {
         }
       `,
       side: THREE.DoubleSide,
+
+      clipping: false,
+      fog: false,
+      lights: false,
     });
     const geometry = new THREE.BoxBufferGeometry(streetSize.x, streetSize.y, streetSize.z);
     const mesh = new THREE.Mesh(geometry, material);

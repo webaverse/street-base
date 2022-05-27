@@ -182,7 +182,6 @@ export default () => {
       direction.x *= 0.9;
       direction.y += r() * directionStepRange;
       direction.y = Math.min(Math.max(direction.y, -directionStepLimit), directionStepLimit);
-      // const centerDirection = new THREE.Vector3(-position.x, 0, -position.z);
       direction.normalize();
 
       // console.log('curve', position.toArray().join(','), direction.toArray().join(','));

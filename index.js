@@ -135,7 +135,11 @@ export default () => {
 
         const vec3 lineColor1 = vec3(${new THREE.Color(0x4fc3f7).toArray().join(', ')});
         // const vec3 lineColor2 = vec3(${new THREE.Color(0x9575cd).toArray().join(', ')});
-
+      
+        vec4 sRGBToLinear( in vec4 value ) {
+          return vec4( mix( pow( value.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), value.rgb * 0.0773993808, vec3( lessThanEqual( value.rgb, vec3( 0.04045 ) ) ) ), value.a );
+        }
+      
         void main() {
           // vec3 c = mix(lineColor1, lineColor2, vPosition.y / 10.);
           vec3 c = lineColor1;

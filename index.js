@@ -148,6 +148,9 @@ export default () => {
           float f = pattern(p, section);
           gl_FragColor = vec4(c * (f > 0.5 ? 1. : 0.2) /* * uBeat */, 1.);
           gl_FragColor = sRGBToLinear(gl_FragColor);
+
+          #include <tonemapping_fragment>
+			    #include <encodings_fragment>
         }
       `,
       side: THREE.DoubleSide,

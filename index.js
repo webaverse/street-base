@@ -1,12 +1,26 @@
 import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import metaversefile from 'metaversefile';
-const {useApp, useFrame, useCleanup, useMaterials, usePhysics} = metaversefile;
+const {useApp, useFrame, useCleanup, useGeometries, useMaterials, usePhysics, useProcGen} = metaversefile;
+
+// const chunkSize = 30;
+const numPoints = 1024;
+// const stepRange = 10;
+const stepSize = 10;
+const directionStepRange = 0.1 * Math.PI;
+// const directionStepLimit = 0.05;
 
 export default () => {
   const app = useApp();
+  const {StreetFlatGeometry} = useGeometries();
   const {WebaverseShaderMaterial} = useMaterials();
+  const procGen = useProcGen();
+  const physicsManager = usePhysics();
+  const {alea} = procGen;
 
-  const streetSize = new THREE.Vector3(10, 1, 1000);
+  // const streetSize = new THREE.Vector3(10, 1, 1000);
+  const startPoint = new THREE.Vector3(0, 1, 0);
+  const startDirection = new THREE.Vector3(0, 0, -1);
 
   const streetMesh = (() => {
     const material = new WebaverseShaderMaterial({
@@ -152,29 +166,100 @@ export default () => {
       fog: false,
       lights: false,
     });
-    const geometry = new THREE.BoxBufferGeometry(streetSize.x, streetSize.y, streetSize.z);
+    
+    // point
+    const rng = alea('path');
+    const r = () => -1 + 2 * rng();
+    
+    const geometries = [];
+    const _makeSplineGeometry = (numPoints, initialPoints, initialDirections, lerpTarget) => {
+      const splinePoints = Array(numPoints + 1);
+      const directions = Array(numPoints + 1);
+      for (let i = 0; i < initialPoints.length - 1; i++) {
+        splinePoints[i] = initialPoints[i];
+      }
+      const position = initialPoints[initialPoints.length - 1].clone();
+      const direction = initialDirections[initialDirections.length - 1].clone();
+      for (let i = initialPoints.length - 1; i <= numPoints; i++) {
+        splinePoints[i] = position.clone();
+        directions[i] = direction.clone();
+
+        position.add(
+          direction.clone()
+            .multiplyScalar(stepSize)
+        );
+        position.y = Math.max(position.y, 0);
+        direction.x += r() * directionStepRange;
+        direction.lerp(lerpTarget, 0.1);
+
+        direction.normalize();
+      }
+      const curve = new THREE.CatmullRomCurve3(splinePoints, false, 'chordal');
+
+      const geometry = new StreetFlatGeometry(
+        curve,
+        numPoints,
+        8, // radiusX
+        0.05, // radiusY
+        4, // radialSegments
+        false // closed
+      );
+      geometry.splinePoints = splinePoints;
+      geometry.directions = directions;
+      return geometry;
+    };
+    const geometry0 = _makeSplineGeometry(numPoints, [startPoint], [startDirection], new THREE.Vector3(0, 0, -1));
+    geometries.push(geometry0);
+
+    const numSplitPoints = Math.floor(numPoints * 0.01);
+    const splitPointIndexes = [];
+    for (let i = 0; i < numSplitPoints; i++) {
+      splitPointIndexes.push(Math.floor(1 + rng() * numPoints));
+    }
+    for (let i = 0; i < geometry0.splinePoints.length; i++) {
+      if (splitPointIndexes.includes(i)) {
+        // const point = geometry0.splinePoints[i];
+
+        const point = geometry0.splinePoints[i].clone();
+        const lastPoint = geometry0.splinePoints[i - 1].clone();
+
+        const direction = geometry0.directions[i].clone();
+        const lastDirection = geometry0.directions[i - 1].clone();
+
+        const lerpTarget = new THREE.Vector3(direction.x > 0 ? 1 : -1, 0, 0);
+
+        const geometry1 = _makeSplineGeometry(512, [lastPoint, point], [lastDirection, direction], lerpTarget);
+        geometries.push(geometry1);
+      }
+    }
+
+    const geometry = BufferGeometryUtils.mergeBufferGeometries(geometries);
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
   })();
   streetMesh.position.set(0, -1/2, 0);
   app.add(streetMesh);
   streetMesh.updateMatrixWorld();
-
+  
+  // streetMesh.position.x = chunkSize/2;
+  // streetMesh.position.z = chunkSize/2;
+  // streetMesh.updateMatrixWorld();
+  
   const physics = usePhysics();
-  const floorPhysicsId = physics.addBoxGeometry(
+  /* const floorPhysicsId = physics.addBoxGeometry(
     new THREE.Vector3(0, -streetSize.y/2, 0)
       .applyQuaternion(streetMesh.quaternion),
     streetMesh.quaternion,
     new THREE.Vector3(streetSize.x, streetSize.y, streetSize.z).multiplyScalar(0.5),
     false
-  );
-
+  ); */
+  const streetPhysicsId = physics.addGeometry(streetMesh);
   useFrame(({timestamp}) => {
-    streetMesh.material.uniforms.uTime.value = (timestamp%10000)/20;
+    // streetMesh.material.uniforms.uTime.value = (timestamp % 10000) / 20;
   });
   
   useCleanup(() => {
-    physics.removeGeometry(floorPhysicsId);
+    physicsManager.removeGeometry(streetPhysicsId);
   });
 
   return app;
